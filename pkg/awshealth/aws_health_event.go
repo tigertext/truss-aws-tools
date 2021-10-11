@@ -19,6 +19,7 @@ type Event struct {
 	EventARN          string             `json:"eventArn"`
 	EventTypeCategory string             `json:"eventTypeCategory"`
 	EventTypeCode     string             `json:"eventTypeCode"`
+        EventScopeCode    string             `json:"eventScopeCode"`
 	Service           string             `json:"service"`
 }
 

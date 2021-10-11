@@ -8,6 +8,8 @@ import (
 	"github.com/trussworks/truss-aws-tools/internal/aws/ssm"
 	"github.com/trussworks/truss-aws-tools/pkg/awshealth"
 
+        "github.com/aws/aws-sdk-go/aws"
+        "github.com/aws/aws-sdk-go/service/health"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	flag "github.com/jessevdk/go-flags"
@@ -28,23 +30,45 @@ var options Options
 var logger *zap.Logger
 
 func sendNotification(event events.CloudWatchEvent) {
-	var health awshealth.Event
-	err := json.Unmarshal([]byte(event.Detail), &health)
+	var healthEvent awshealth.Event
+	err := json.Unmarshal([]byte(event.Detail), &healthEvent)
 	if err != nil {
 		logger.Error("Unable to unmarshal health event", zap.Error(err))
 	}
 
-	eventURL := health.HealthEventURL()
+	eventURL := healthEvent.HealthEventURL()
 	awsSession := session.MustMakeSession(options.Region, options.Profile)
 	slackWebhookURL, err := ssm.DecryptValue(awsSession, options.SSMSlackWebhookURL)
 	if err != nil {
 		logger.Fatal("failed to decrypt slackWebhookURL", zap.Error(err))
 	}
 	slack := slackhook.New(slackWebhookURL)
+
 	description := "no description found in health check"
-	if len(health.Description) > 0 {
-		description = health.Description[0].Latest
+	if len(healthEvent.Description) > 0 {
+		description = healthEvent.Description[0].Latest
 	}
+
+        awsAccountId := "N/A"
+        entityValue := "N/A"
+
+        if (healthEvent.EventScopeCode == "ACCOUNT_SPECIFIC") {
+                healthClient := health.New(awsSession)
+                eventArn := []*string{aws.String(healthEvent.EventARN)}
+                entityFilter := &health.EntityFilter{
+                    EventArns: eventArn,
+                }
+                healthEventDetails, err := healthClient.DescribeAffectedEntities(&health.DescribeAffectedEntitiesInput{
+		                       Filter: entityFilter,
+	        })
+
+	        if err != nil {
+		    log.Fatal(err)
+	        }
+
+                awsAccountId = *healthEventDetails.Entities[0].AwsAccountId
+                entityValue = *healthEventDetails.Entities[0].EntityValue
+        }
 
 	attachment := slackhook.Attachment{
 		Title:     "AWS Health Notification",
@@ -53,7 +77,7 @@ func sendNotification(event events.CloudWatchEvent) {
 		Fields: []slackhook.Field{
 			{
 				Title: "Service",
-				Value: health.Service,
+				Value: healthEvent.Service,
 			},
 			{
 				Title: "Description",
@@ -61,13 +85,23 @@ func sendNotification(event events.CloudWatchEvent) {
 			},
 			{
 				Title: "EventTypeCode",
-				Value: health.EventTypeCode,
+				Value: healthEvent.EventTypeCode,
 			},
 			{
 				Title: "Link",
 				Value: eventURL,
 				Short: false,
 			},
+                        {
+                                Title: "AWS Account ID",
+                                Value: awsAccountId,
+                                Short: false,
+                        },
+                        {
+                                Title: "Entity Value",
+                                Value: entityValue,
+                                Short: false,
+                        },
 		},
 	}
 
