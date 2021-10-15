@@ -25,7 +25,7 @@ type Options struct {
         AWSHealthRegion    string `long:"aws-health-region" description:"The AWS Health API region to use." required:"false" env:"AWS_HEALTH_REGION"`
 
         // To debug Lambda without sending an actual message to Slack
-        SendMessage        bool `short:"s" long:"send-message" description:"Send message to Slack or not." required:"false" env:"SEND_MESSAGE" default:"true"`
+        DoNotSendMessage        bool `short:"s" long:"do-not-send-message" description:"Do not send message to Slack if true" required:"false" env:"DO_NOT_SEND_MESSAGE"`
 
 	Profile            string `short:"p" long:"profile" description:"The AWS profile to use." required:"false" env:"AWS_PROFILE"`
 	SlackChannel       string `long:"slack-channel" description:"The Slack channel." required:"true" env:"SLACK_CHANNEL"`
@@ -119,16 +119,15 @@ func sendNotification(event events.CloudWatchEvent) {
 		},
 	}
 
-	message := &slackhook.Message{
+	message := &slackhook.Message {
 		Channel:   options.SlackChannel,
 		IconEmoji: options.SlackEmoji,
 	}
 	message.AddAttachment(&attachment)
 
-        if !SendMessage {
+        if options.DoNotSendMessage == true {
           logger.Info("Send message is turned off")
-        }
-        else {
+        } else {
 	  err = slack.Send(message)
 	  if err != nil {
 		logger.Error("failed to send slack message", zap.Error(err),
