@@ -20,13 +20,10 @@ import (
 // Options are the command line options
 type Options struct {
 	Region             string `long:"region" description:"The AWS region to use." required:"false" env:"REGION"`
-
         // AWS Health API is available only in us-east-1 region
         AWSHealthRegion    string `long:"aws-health-region" description:"The AWS Health API region to use." required:"false" env:"AWS_HEALTH_REGION"`
-
         // To debug Lambda without sending an actual message to Slack
         DoNotSendMessage        bool `short:"s" long:"do-not-send-message" description:"Do not send message to Slack if true" required:"false" env:"DO_NOT_SEND_MESSAGE"`
-
 	Profile            string `short:"p" long:"profile" description:"The AWS profile to use." required:"false" env:"AWS_PROFILE"`
 	SlackChannel       string `long:"slack-channel" description:"The Slack channel." required:"true" env:"SLACK_CHANNEL"`
 	SlackEmoji         string `long:"slack-emoji" description:"The Slack Emoji associated with the notifications." env:"SLACK_EMOJI" default:":boom:"`
@@ -80,8 +77,8 @@ func sendNotification(event events.CloudWatchEvent) {
                 awsAccountId = *healthEventDetails.Entities[0].AwsAccountId
                 entityValue = *healthEventDetails.Entities[0].EntityValue
 
-                logger.Info("AWS Account ID2", zap.String("aws-account-id", awsAccountId))
-                logger.Info("Entity Value2", zap.String("entity-value", entityValue))
+                logger.Info("AWS Account ID", zap.String("aws-account-id", awsAccountId))
+                logger.Info("Entity Value", zap.String("entity-value", entityValue))
         }
 
 	attachment := slackhook.Attachment{
