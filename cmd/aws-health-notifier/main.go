@@ -20,6 +20,13 @@ import (
 // Options are the command line options
 type Options struct {
 	Region             string `long:"region" description:"The AWS region to use." required:"false" env:"REGION"`
+
+        // AWS Health API is available only in us-east-1 region
+        AWSHealthRegion    string `long:"aws-health-region" description:"The AWS Health API region to use." required:"false" env:"AWS_HEALTH_REGION"`
+
+        // To debug Lambda without sending an actual message to Slack
+        SendMessage        bool `short:"s" long:"send-message" description:"Send message to Slack or not." required:"false" env:"SEND_MESSAGE" default:"true"`
+
 	Profile            string `short:"p" long:"profile" description:"The AWS profile to use." required:"false" env:"AWS_PROFILE"`
 	SlackChannel       string `long:"slack-channel" description:"The Slack channel." required:"true" env:"SLACK_CHANNEL"`
 	SlackEmoji         string `long:"slack-emoji" description:"The Slack Emoji associated with the notifications." env:"SLACK_EMOJI" default:":boom:"`
@@ -52,8 +59,12 @@ func sendNotification(event events.CloudWatchEvent) {
         awsAccountId := "N/A"
         entityValue := "N/A"
 
+        //Debug info
+        logger.Info("AWS Health Event", zap.String("event-scope-code", healthEvent.EventScopeCode))
+
         if (healthEvent.EventScopeCode == "ACCOUNT_SPECIFIC") {
-                healthClient := health.New(awsSession)
+                awsSession2 := session.MustMakeSession(options.AWSHealthRegion, options.Profile)
+                healthClient := health.New(awsSession2)
                 eventArn := []*string{aws.String(healthEvent.EventARN)}
                 entityFilter := &health.EntityFilter{
                     EventArns: eventArn,
@@ -68,6 +79,9 @@ func sendNotification(event events.CloudWatchEvent) {
 
                 awsAccountId = *healthEventDetails.Entities[0].AwsAccountId
                 entityValue = *healthEventDetails.Entities[0].EntityValue
+
+                logger.Info("AWS Account ID2", zap.String("aws-account-id", awsAccountId))
+                logger.Info("Entity Value2", zap.String("entity-value", entityValue))
         }
 
 	attachment := slackhook.Attachment{
@@ -111,12 +125,17 @@ func sendNotification(event events.CloudWatchEvent) {
 	}
 	message.AddAttachment(&attachment)
 
-	err = slack.Send(message)
-	if err != nil {
+        if !SendMessage {
+          logger.Info("Send message is turned off")
+        }
+        else {
+	  err = slack.Send(message)
+	  if err != nil {
 		logger.Error("failed to send slack message", zap.Error(err),
 			zap.String("slack-channel", options.SlackChannel))
-	}
-	logger.Info("successfully sent slack message", zap.String("slack-channel", options.SlackChannel))
+	  }
+	  logger.Info("successfully sent slack message", zap.String("slack-channel", options.SlackChannel))
+       }
 }
 
 func lambdaHandler() {
