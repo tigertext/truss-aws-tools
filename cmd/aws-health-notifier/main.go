@@ -57,7 +57,7 @@ func sendNotification(event events.CloudWatchEvent) {
         entityValue := "N/A"
 
         //Debug info
-        logger.Info("AWS Health Event", zap.String("event-scope-code", healthEvent.EventScopeCode))
+        log.Printf("AWS Health Event: %s", healthEvent)
 
         if (healthEvent.EventScopeCode == "ACCOUNT_SPECIFIC") {
                 awsSession2 := session.MustMakeSession(options.AWSHealthRegion, options.Profile)
