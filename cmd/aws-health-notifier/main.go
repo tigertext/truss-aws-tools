@@ -56,30 +56,29 @@ func sendNotification(event events.CloudWatchEvent) {
         awsAccountId := "N/A"
         entityValue := "N/A"
 
-        //Debug info
-        log.Printf("AWS Health Event: %s", healthEvent)
-
-        if (healthEvent.EventScopeCode == "ACCOUNT_SPECIFIC") {
-                awsSession2 := session.MustMakeSession(options.AWSHealthRegion, options.Profile)
-                healthClient := health.New(awsSession2)
-                eventArn := []*string{aws.String(healthEvent.EventARN)}
-                entityFilter := &health.EntityFilter{
-                    EventArns: eventArn,
-                }
-                healthEventDetails, err := healthClient.DescribeAffectedEntities(&health.DescribeAffectedEntitiesInput{
-		                       Filter: entityFilter,
-	        })
-
-	        if err != nil {
-		    log.Fatal(err)
-	        }
-
-                awsAccountId = *healthEventDetails.Entities[0].AwsAccountId
-                entityValue = *healthEventDetails.Entities[0].EntityValue
-
-                logger.Info("AWS Account ID", zap.String("aws-account-id", awsAccountId))
-                logger.Info("Entity Value", zap.String("entity-value", entityValue))
+        awsSession2 := session.MustMakeSession(options.AWSHealthRegion, options.Profile)
+        healthClient := health.New(awsSession2)
+        eventArn := []*string{aws.String(healthEvent.EventARN)}
+        entityFilter := &health.EntityFilter{
+            EventArns: eventArn,
         }
+        healthEventDetails, err := healthClient.DescribeAffectedEntities(&health.DescribeAffectedEntitiesInput{
+                 Filter: entityFilter,
+        })
+        if err != nil {
+	    log.Fatal(err)
+        }
+               
+        if *healthEventDetails.Entities[0].AwsAccountId != "" {
+            awsAccountId = *healthEventDetails.Entities[0].AwsAccountId
+        }
+
+        if *healthEventDetails.Entities[0].EntityValue != "" {
+            entityValue = *healthEventDetails.Entities[0].EntityValue
+        }
+
+        logger.Info("AWS Account ID", zap.String("aws-account-id", awsAccountId))
+        logger.Info("Entity Value", zap.String("entity-value", entityValue))
 
 	attachment := slackhook.Attachment{
 		Title:     "AWS Health Notification",
